@@ -80,7 +80,8 @@ def get_offer_ids(campaign_id, market_token):
 def create_stocks(watch_remnants, offer_ids, warehouse_id):
     # Уберем то, что не загружено в market
     stocks = list()
-    date = str(datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z")
+    date = str(datetime.datetime.utcnow().replace(
+        microsecond=0).isoformat() + "Z")
     for watch in watch_remnants:
         if str(watch.get("Код")) in offer_ids:
             count = str(watch.get("Количество"))
@@ -150,7 +151,8 @@ async def upload_prices(watch_remnants, campaign_id, market_token):
     return prices
 
 
-async def upload_stocks(watch_remnants, campaign_id, market_token, warehouse_id):
+async def upload_stocks(watch_remnants, campaign_id, market_token, 
+                        warehouse_id):
     offer_ids = get_offer_ids(campaign_id, market_token)
     stocks = create_stocks(watch_remnants, offer_ids, warehouse_id)
     for some_stock in list(divide(stocks, 2000)):
