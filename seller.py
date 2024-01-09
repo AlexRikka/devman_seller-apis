@@ -4,7 +4,6 @@ import os
 import re
 import zipfile
 from environs import Env
-
 import pandas as pd
 import requests
 
@@ -12,7 +11,31 @@ logger = logging.getLogger(__file__)
 
 
 def get_product_list(last_id, client_id, seller_token):
-    """Получить список товаров магазина озон"""
+    """Получить список товаров магазина озон.
+
+    Args:
+        last_id (str): Идентификатор последнего значения на странице
+        client_id (str): Идентификатор клиента
+        seller_token (str): API токен маркетплейса
+
+    Returns:
+        dict: Список товаров
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> get_product_list("", "12345", "access_token")
+        {
+            'offerMappingEntries': [...],
+            'paging': {...}
+        }
+
+        >>> get_product_list("invalid_page", "12345", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     url = "https://api-seller.ozon.ru/v2/product/list"
     headers = {
         "Client-Id": client_id,
@@ -32,7 +55,24 @@ def get_product_list(last_id, client_id, seller_token):
 
 
 def get_offer_ids(client_id, seller_token):
-    """Получить артикулы товаров магазина озон"""
+    """Получить артикулы товаров магазина озон.
+
+    Args:
+        client_id (str): Идентификатор клиента
+        seller_token (str): API токен маркетплейса
+
+    Returns:
+        list: Артикулы товаров
+
+    Examples:
+        >>> get_offer_ids("12345", "access_token")
+        []
+
+        >>> ("12345", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     last_id = ""
     product_list = []
     while True:
@@ -49,7 +89,30 @@ def get_offer_ids(client_id, seller_token):
 
 
 def update_price(prices: list, client_id, seller_token):
-    """Обновить цены товаров"""
+    """Устанавливает цены на товары в магазине.
+
+    Args:
+        prices (list): Цены товаров
+        client_id (str): Идентификатор клиента
+        seller_token (str): API токен маркетплейса
+
+    Returns:
+        dict: Ответ от маркетплейса
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> update_price(some_price_list, "12345", "access_token")
+        {
+            "result": [...]
+        }
+
+        >>> update_price(some_price_list, "12345", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     url = "https://api-seller.ozon.ru/v1/product/import/prices"
     headers = {
         "Client-Id": client_id,
@@ -62,7 +125,30 @@ def update_price(prices: list, client_id, seller_token):
 
 
 def update_stocks(stocks: list, client_id, seller_token):
-    """Обновить остатки"""
+    """Передает информацию по остаткам.
+
+    Args:
+        stocks (list): Артикулы и количество оставших товаров
+        client_id (str): Идентификатор клиента
+        seller_token (str): API токен маркетплейса
+
+    Returns:
+        dict: Ответ от маркетплейса
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> update_stocks(some_stock_list, "12345", "access_token")
+        {
+            "result": [...]
+        }
+
+        >>> update_stocks(some_stock_list, "12345", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     url = "https://api-seller.ozon.ru/v1/product/import/stocks"
     headers = {
         "Client-Id": client_id,
@@ -75,7 +161,23 @@ def update_stocks(stocks: list, client_id, seller_token):
 
 
 def download_stock():
-    """Скачать файл ostatki с сайта casio"""
+    """Скачать остатки товаров с сайта casio.
+
+    Returns:
+        list: Остатки товаров
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> download_stock()
+        [{'Код': '', 'Наименование товара': '',..},..]
+
+        >>> download_stock()
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     # Скачать остатки с сайта
     casio_url = "https://timeworld.ru/upload/files/ostatki.zip"
     session = requests.Session()
@@ -96,6 +198,19 @@ def download_stock():
 
 
 def create_stocks(watch_remnants, offer_ids):
+    """Получить артикулы и количество товаров.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        offer_ids (list): Артикулы товаров
+
+    Returns:
+        list: Артикулы и количество оставшихся товаров
+
+    Examples:
+        >>> create_stocks(watch_remnants, offer_ids)
+        [{"offer_id": offer_id, "stock": 0},..]
+    """
     # Уберем то, что не загружено в seller
     stocks = []
     for watch in watch_remnants:
@@ -116,6 +231,19 @@ def create_stocks(watch_remnants, offer_ids):
 
 
 def create_prices(watch_remnants, offer_ids):
+    """Получить цены товаров.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        offer_ids (list): Артикул товаров
+
+    Returns:
+        list: Цены товаров
+
+    Examples:
+        >>> create_prices(watch_remnants, offer_ids)
+        [{"auto_action_enabled": "",..},..]
+    """
     prices = []
     for watch in watch_remnants:
         if str(watch.get("Код")) in offer_ids:
@@ -131,25 +259,59 @@ def create_prices(watch_remnants, offer_ids):
 
 
 def price_conversion(price: str) -> str:
-    """Преобразует цену в целое число в формате строки.
+    """Преобразовать цену в целое число в формате строки.
 
     Args:
         price (str): Цена
+
     Returns:
         str: Цена в виде целого числа
-    Пример:
-        5'990.00 руб. -> 5990
+
+    Examples:
+        >>> price("5'990.00 руб.")
+        5990
     """
     return re.sub("[^0-9]", "", price.split(".")[0])
 
 
 def divide(lst: list, n: int):
-    """Разделить список lst на части по n элементов"""
+    """Разделить список lst на части по n элементов.
+
+    Args:
+        lst (list): Список
+        n (int): Число элементов в одной части списка
+
+    Yields:
+        list: Часть входного списка из n элементов
+
+    Examples:
+        >>> divide([1, 2, 3, 4, 5], 2)
+        [[1, 2], [3, 4, 5]]
+    """
     for i in range(0, len(lst), n):
         yield lst[i: i + n]
 
 
 async def upload_prices(watch_remnants, client_id, seller_token):
+    """Обновить цены товаров на сайте.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        client_id (str): Идентификатор клиента
+        seller_token (str): API токен продавца
+
+    Returns:
+        list: Список цен товаров
+
+    Examples:
+        >>> upload_prices(watch_remnants,  "12345", "access_token")
+        [{"auto_action_enabled": "",..},..]
+
+        >>> upload_prices(watch_remnants, "12345", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     offer_ids = get_offer_ids(client_id, seller_token)
     prices = create_prices(watch_remnants, offer_ids)
     for some_price in list(divide(prices, 1000)):
@@ -158,6 +320,25 @@ async def upload_prices(watch_remnants, client_id, seller_token):
 
 
 async def upload_stocks(watch_remnants, client_id, seller_token):
+    """Обновить отстатки товаров на сайте.
+    Args:
+        watch_remnants (list): Остатки товаров
+        client_id (str): Идентификатор клиента
+        seller_token (str): Ключ продавца
+
+    Returns:
+        not_empty (list): Товары в наличии
+        stocks (list): Информация об остатках товаров
+
+    Examples:
+        >>> upload_stocks(watch_remnants, "12345", "access_token")
+        [{"offer_id": offer_id, "stock": 0},..], [{},..]
+
+        >>> upload_stocks(watch_remnants, "12345", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     offer_ids = get_offer_ids(client_id, seller_token)
     stocks = create_stocks(watch_remnants, offer_ids)
     for some_stock in list(divide(stocks, 100)):
