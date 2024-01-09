@@ -1,16 +1,40 @@
 import datetime
 import logging.config
+import requests
 from environs import Env
 from seller import download_stock
-
-import requests
-
 from seller import divide, price_conversion
 
 logger = logging.getLogger(__file__)
 
 
 def get_product_list(page, campaign_id, access_token):
+    """Получить список товаров яндекс маркета.
+
+    Args:
+        page (str): Идентификатор страницы каталога
+        campaign_id (str): Идентификатор магазина, в котором размещен товар
+        access_token (str): API токен маркетплейса
+
+    Returns:
+        dict: Список товаров
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> get_product_list("", "1234", "access_token")
+        {
+            "paging": {...},
+            "offerMappingEntries": [...],
+            ...
+        }
+
+        >>> get_product_list("", "1234", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     endpoint_url = "https://api.partner.market.yandex.ru/"
     headers = {
         "Content-Type": "application/json",
@@ -30,6 +54,30 @@ def get_product_list(page, campaign_id, access_token):
 
 
 def update_stocks(stocks, campaign_id, access_token):
+    """Передает информацию по остаткам.
+
+    Args:
+        stocks (list): Артикулы и количество оставшихся товаров
+        campaign_id (str): Идентификатор магазина, в котором размещен товар
+        access_token (str): API токен маркетплейса
+
+    Returns:
+        dict: Ответ от маркетплейса
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> update_stocks(some_stock, "1234", "access_token")
+        {
+            "offers": [...]
+        }
+
+        >>> update_stocks(some_stock, "1234", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     endpoint_url = "https://api.partner.market.yandex.ru/"
     headers = {
         "Content-Type": "application/json",
@@ -46,6 +94,30 @@ def update_stocks(stocks, campaign_id, access_token):
 
 
 def update_price(prices, campaign_id, access_token):
+    """Устанавливает цены на товары в магазине.
+
+    Args:
+        prices (list): Цены товаров
+        campaign_id (str): Идентификатор магазина, в котором размещен товар
+        access_token (str): API токен маркетплейса
+
+    Returns:
+        dict: Ответ от маркетплейса
+
+    Raises:
+        requests.exceptions.HTTPError
+
+    Examples:
+        >>> update_price(prices, "1234", "access_token")
+        {
+            "offers": [...]
+        }
+
+        >>> update_price(prices, "1234", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     endpoint_url = "https://api.partner.market.yandex.ru/"
     headers = {
         "Content-Type": "application/json",
@@ -62,7 +134,24 @@ def update_price(prices, campaign_id, access_token):
 
 
 def get_offer_ids(campaign_id, market_token):
-    """Получить артикулы товаров Яндекс маркета"""
+    """Получить артикулы товаров Яндекс маркета.
+
+    Args:
+        campaign_id (str): Идентификатор магазина, в котором размещен товар
+        market_token (str): API токен маркетплейса
+
+    Returns:
+        list: Артикулы товаров
+
+    Examples:
+        >>> get_offer_ids("1234", "access_token")
+        [123,..]
+
+        >>> get_offer_ids("1234", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     page = ""
     product_list = []
     while True:
@@ -78,6 +167,20 @@ def get_offer_ids(campaign_id, market_token):
 
 
 def create_stocks(watch_remnants, offer_ids, warehouse_id):
+    """Получить артикулы и количество товаров.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        offer_ids (list): Артикулы товаров
+        warehouse_id (str): Идентификатор склада
+
+    Returns:
+        list: Артикулы и количество оставшихся товаров
+
+    Examples:
+        >>> create_stocks(watch_remnants, offer_ids, "123")
+        [{"sku": "", "warehouseId": "", "items": [...]}}]
+    """
     # Уберем то, что не загружено в market
     stocks = list()
     date = str(datetime.datetime.utcnow().replace(
@@ -124,6 +227,19 @@ def create_stocks(watch_remnants, offer_ids, warehouse_id):
 
 
 def create_prices(watch_remnants, offer_ids):
+    """Получить цены товаров.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        offer_ids (list): Артикул товаров
+
+    Returns:
+        list: Цены товаров
+
+    Examples:
+        >>> create_prices(watch_remnants, offer_ids)
+        ["id": "", "price": {...}]
+    """
     prices = []
     for watch in watch_remnants:
         if str(watch.get("Код")) in offer_ids:
@@ -144,6 +260,25 @@ def create_prices(watch_remnants, offer_ids):
 
 
 async def upload_prices(watch_remnants, campaign_id, market_token):
+    """Обновить цены товаров на сайте.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        client_id (str): Идентификатор клиента
+        seller_token (str): API токен продавца
+
+    Returns:
+        list: Цены товаров
+
+    Examples:
+        >>> upload_prices(watch_remnants, "1234", "access_token")
+        ["id": "", "price": {...}]
+
+        >>> upload_prices(watch_remnants, "1234", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     offer_ids = get_offer_ids(campaign_id, market_token)
     prices = create_prices(watch_remnants, offer_ids)
     for some_prices in list(divide(prices, 500)):
@@ -151,8 +286,29 @@ async def upload_prices(watch_remnants, campaign_id, market_token):
     return prices
 
 
-async def upload_stocks(watch_remnants, campaign_id, market_token, 
+async def upload_stocks(watch_remnants, campaign_id, market_token,
                         warehouse_id):
+    """Обновить отстатки товаров на сайте.
+
+    Args:
+        watch_remnants (list): Остатки товаров
+        campaign_id (str): Идентификатор клиента
+        market_token (str): API токен маркетплейса
+        warehouse_id (str): Идентификатор склада
+
+    Returns:
+        not_empty (list): Товары в наличии
+        stocks (list): Информация об остатках товаров
+
+    Examples:
+        >>> upload_stocks(watch_remnants, "1234", "access_token")
+        [{"sku": "", "warehouseId": "", "items": [...]}}], [{..}]
+
+        >>> upload_stocks(watch_remnants, "1234", "invalid_token")
+        Traceback (most recent call last):
+        ...
+        requests.exceptions.RequestException
+    """
     offer_ids = get_offer_ids(campaign_id, market_token)
     stocks = create_stocks(watch_remnants, offer_ids, warehouse_id)
     for some_stock in list(divide(stocks, 2000)):
